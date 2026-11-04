@@ -92,7 +92,7 @@ export async function submitDatePlan(input: DatePlanInput): Promise<SubmitDatePl
     return { message: 'That’s enough excitement for one minute—try again in a bit ❤️', ok: false }
   }
 
-  const apiKey = process.env.RESEND_API_KEY
+  const apiKey = process.env.APIKEYZ
   const recipient = process.env.DATE_RESPONSE_EMAIL
   const fromAddress = 'onboarding@resend.dev'
 
