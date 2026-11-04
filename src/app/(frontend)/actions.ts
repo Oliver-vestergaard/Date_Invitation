@@ -18,7 +18,6 @@ export type SubmitDatePlanResult = {
 }
 
 const recentSubmissions = new Map<string, number[]>()
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/
 
@@ -92,11 +91,11 @@ export async function submitDatePlan(input: DatePlanInput): Promise<SubmitDatePl
     return { message: 'That’s enough excitement for one minute—try again in a bit ❤️', ok: false }
   }
 
-  const recipient = process.env.DATE_RESPONSE_EMAIL_V2
+  const formId = process.env.FORMSPREE_FORM_ID
 
-  if (!recipient || !emailPattern.test(recipient)) {
+  if (!formId) {
     return {
-      message: 'One tiny email setup thing is still missing before this can fly ❤️',
+      message: 'One tiny form setup thing is still missing before this can fly ❤️',
       ok: false,
     }
   }
@@ -109,7 +108,7 @@ export async function submitDatePlan(input: DatePlanInput): Promise<SubmitDatePl
   let formResponse: Response
 
   try {
-    formResponse = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(recipient)}`, {
+    formResponse = await fetch(`https://formspree.io/f/${formId}`, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -133,28 +132,7 @@ export async function submitDatePlan(input: DatePlanInput): Promise<SubmitDatePl
     }
   }
 
-  const formResult = (await formResponse.json().catch(() => null)) as {
-    message?: unknown
-    success?: unknown
-  } | null
-  const formMessage =
-    typeof formResult?.message === 'string' ? formResult.message.toLowerCase() : ''
-
-  if (formMessage.includes('activat')) {
-    return {
-      message: 'Check your inbox for the FormSubmit activation email, then submit again ❤️',
-      ok: false,
-    }
-  }
-
-  if (!formResponse.ok || formResult?.success !== true) {
-    if (formResponse.status === 401 || formResponse.status === 403) {
-      return {
-        message: 'Check your inbox for the FormSubmit activation email, then try again ❤️',
-        ok: false,
-      }
-    }
-
+  if (!formResponse.ok) {
     if (formResponse.status === 429) {
       return {
         message: 'The mail service needs a little break. Please wait a minute and try again ❤️',
