@@ -19,11 +19,20 @@ export type SubmitDatePlanResult = {
 
 const recentSubmissions = new Map<string, number[]>()
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const emailFinder = /[^\s@()]+@[^\s@()]+\.[^\s@(),.]+/i
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/
 
 function isActivity(value: unknown): value is Activity {
   return typeof value === 'string' && activities.includes(value as Activity)
+}
+
+function maskEmail(value: string) {
+  const [localPart, domain] = value.split('@')
+
+  if (!localPart || !domain) return null
+
+  return `${localPart.slice(0, 2)}***@${domain}`
 }
 
 function hasValidDateParts(value: string) {
@@ -159,9 +168,13 @@ export async function submitDatePlan(input: DatePlanInput): Promise<SubmitDatePl
       errorMessage.includes('testing email') ||
       errorMessage.includes('verify a domain')
     ) {
+      const accountEmail = errorMessage.match(emailFinder)?.[0]
+      const accountHint = accountEmail ? maskEmail(accountEmail) : null
+
       return {
-        message:
-          'The test sender can only email the address connected to your Resend account. Please double-check that inbox ❤️',
+        message: accountHint
+          ? `Resend says this key belongs to ${accountHint}. The receiving email must be that same address ❤️`
+          : 'The test sender can only email the address connected to your Resend account. Please double-check that inbox ❤️',
         ok: false,
       }
     }
