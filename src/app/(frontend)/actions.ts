@@ -94,9 +94,9 @@ export async function submitDatePlan(input: DatePlanInput): Promise<SubmitDatePl
 
   const apiKey = process.env.RESEND_API_KEY
   const recipient = process.env.DATE_RESPONSE_EMAIL
-  const fromAddress = process.env.DATE_FROM_EMAIL || 'onboarding@resend.dev'
+  const fromAddress = 'onboarding@resend.dev'
 
-  if (!apiKey || !recipient || !emailPattern.test(recipient) || !emailPattern.test(fromAddress)) {
+  if (!apiKey || !recipient || !emailPattern.test(recipient)) {
     return {
       message: 'One tiny email setup thing is still missing before this can fly ❤️',
       ok: false,
@@ -139,6 +139,40 @@ export async function submitDatePlan(input: DatePlanInput): Promise<SubmitDatePl
   }
 
   if (!resendResponse.ok) {
+    const resendError = (await resendResponse.json().catch(() => null)) as {
+      message?: unknown
+      name?: unknown
+    } | null
+    const errorMessage =
+      typeof resendError?.message === 'string' ? resendError.message.toLowerCase() : ''
+    const errorName = typeof resendError?.name === 'string' ? resendError.name.toLowerCase() : ''
+
+    if (resendResponse.status === 401 || errorName.includes('invalid_api_key')) {
+      return {
+        message: 'Resend did not accept the API key. Please create a new Sending access key ❤️',
+        ok: false,
+      }
+    }
+
+    if (
+      resendResponse.status === 403 ||
+      errorMessage.includes('testing email') ||
+      errorMessage.includes('verify a domain')
+    ) {
+      return {
+        message:
+          'The test sender can only email the address connected to your Resend account. Please double-check that inbox ❤️',
+        ok: false,
+      }
+    }
+
+    if (resendResponse.status === 429 || errorName.includes('rate_limit')) {
+      return {
+        message: 'Resend needs a little break. Please wait a minute and try again ❤️',
+        ok: false,
+      }
+    }
+
     return {
       message: 'The email got a little lost. Please try sending it again ❤️',
       ok: false,
