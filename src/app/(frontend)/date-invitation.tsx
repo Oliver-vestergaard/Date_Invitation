@@ -38,6 +38,7 @@ export function DateInvitation() {
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const [previewMessage, setPreviewMessage] = useState('')
+  const [noPosition, setNoPosition] = useState({ x: 0, y: 0 })
 
   const minimumDate = useMemo(() => new Date().toISOString().split('T')[0], [])
 
@@ -50,6 +51,24 @@ export function DateInvitation() {
   const chooseActivity = (choice: (typeof activities)[number]) => {
     setActivity(choice)
     window.setTimeout(() => setStep('schedule'), 170)
+  }
+
+  const dodgeNoButton = () => {
+    const horizontalRange = window.innerWidth < 520 ? 58 : 150
+    const verticalRange = window.innerWidth < 520 ? 92 : 78
+
+    setNoPosition((current) => {
+      let next = current
+
+      while (Math.hypot(next.x - current.x, next.y - current.y) < 72) {
+        next = {
+          x: Math.round((Math.random() * 2 - 1) * horizontalRange),
+          y: Math.round((Math.random() * 2 - 1) * verticalRange),
+        }
+      }
+
+      return next
+    })
   }
 
   const restart = () => {
@@ -85,7 +104,7 @@ export function DateInvitation() {
             <div className="invite-step">
               <p className="eyebrow">A SMALL QUESTION</p>
               <h1>WOULD YOU LIKE TO GO ON A DATE WITH ME?</h1>
-              <div className="button-row">
+              <div className="button-row invite-actions">
                 <button
                   className="choice-button choice-button-large"
                   onClick={() => chooseResponse('Yes')}
@@ -93,8 +112,20 @@ export function DateInvitation() {
                   YES
                 </button>
                 <button
-                  className="choice-button choice-button-small"
-                  onClick={() => chooseResponse('No')}
+                  aria-label="No — this button runs away"
+                  className="choice-button choice-button-small runaway-button"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    dodgeNoButton()
+                  }}
+                  onFocus={dodgeNoButton}
+                  onPointerDown={(event) => {
+                    event.preventDefault()
+                    dodgeNoButton()
+                  }}
+                  onPointerEnter={dodgeNoButton}
+                  style={{ transform: `translate3d(${noPosition.x}px, ${noPosition.y}px, 0)` }}
+                  type="button"
                 >
                   NO
                 </button>

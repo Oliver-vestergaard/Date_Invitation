@@ -214,6 +214,27 @@
   font-size: 0.75rem;
 }
 
+.invite-actions {
+  position: relative;
+  width: min(100%, 20.7rem);
+  min-height: 7.5rem;
+  align-items: flex-start;
+}
+
+.runaway-button {
+  will-change: transform;
+  transition:
+    transform 150ms cubic-bezier(0.2, 0.75, 0.25, 1.35),
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+.runaway-button:hover,
+.runaway-button:focus-visible,
+.runaway-button:active {
+  background: #c25b00;
+}
+
 .activity-grid {
   display: grid;
   width: min(100%, 21.1rem);
@@ -534,6 +555,15 @@
   .invite-step .button-row .choice-button {
     min-width: 0;
     flex: 1;
+  }
+
+  .invite-actions {
+    width: 100%;
+    min-height: 9rem;
+  }
+
+  .invite-actions .choice-button {
+    max-width: calc(50% - 0.4rem);
   }
 
   .date-field {
