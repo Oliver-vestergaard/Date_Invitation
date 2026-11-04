@@ -18,21 +18,11 @@ export type SubmitDatePlanResult = {
 }
 
 const recentSubmissions = new Map<string, number[]>()
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const emailFinder = /[^\s@()]+@[^\s@()]+\.[^\s@(),.]+/i
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/
 
 function isActivity(value: unknown): value is Activity {
   return typeof value === 'string' && activities.includes(value as Activity)
-}
-
-function maskEmail(value: string) {
-  const [localPart, domain] = value.split('@')
-
-  if (!localPart || !domain) return null
-
-  return `${localPart.slice(0, 2)}***@${domain}`
 }
 
 function hasValidDateParts(value: string) {
@@ -101,11 +91,9 @@ export async function submitDatePlan(input: DatePlanInput): Promise<SubmitDatePl
     return { message: 'That’s enough excitement for one minute—try again in a bit ❤️', ok: false }
   }
 
-  const apiKey = process.env.APIKEYZ
-  const recipient = process.env.DATE_RESPONSE_EMAIL_V2
-  const fromAddress = 'onboarding@resend.dev'
+  const accessKey = process.env.WEB3FORMS_ACCESS_KEY
 
-  if (!apiKey || !recipient || !emailPattern.test(recipient)) {
+  if (!accessKey) {
     return {
       message: 'One tiny email setup thing is still missing before this can fly ❤️',
       ok: false,
@@ -117,26 +105,29 @@ export async function submitDatePlan(input: DatePlanInput): Promise<SubmitDatePl
     timeZone: 'UTC',
   }).format(new Date(`${input.date}T12:00:00Z`))
 
-  let resendResponse: Response
+  let formResponse: Response
 
   try {
-    resendResponse = await fetch('https://api.resend.com/emails', {
+    formResponse = await fetch('https://api.web3forms.com/submit', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: `Date Invitation <${fromAddress}>`,
-        subject: 'A date answer just arrived ❤️',
-        text: [
+        access_key: accessKey,
+        answer: 'YES ❤️',
+        date: formattedDate,
+        from_name: 'Date Invitation',
+        message: [
           'The answer is YES ❤️',
           '',
           `Plan: ${input.activity}`,
           `Date: ${formattedDate}`,
           `Time: ${input.time}`,
         ].join('\n'),
-        to: [recipient],
+        plan: input.activity,
+        subject: 'A date answer just arrived ❤️',
+        time: input.time,
       }),
       cache: 'no-store',
     })
@@ -147,41 +138,22 @@ export async function submitDatePlan(input: DatePlanInput): Promise<SubmitDatePl
     }
   }
 
-  if (!resendResponse.ok) {
-    const resendError = (await resendResponse.json().catch(() => null)) as {
-      message?: unknown
-      name?: unknown
-    } | null
-    const errorMessage =
-      typeof resendError?.message === 'string' ? resendError.message.toLowerCase() : ''
-    const errorName = typeof resendError?.name === 'string' ? resendError.name.toLowerCase() : ''
+  const formResult = (await formResponse.json().catch(() => null)) as {
+    message?: unknown
+    success?: unknown
+  } | null
 
-    if (resendResponse.status === 401 || errorName.includes('invalid_api_key')) {
+  if (!formResponse.ok || formResult?.success !== true) {
+    if (formResponse.status === 401 || formResponse.status === 403) {
       return {
-        message: 'Resend did not accept the API key. Please create a new Sending access key ❤️',
+        message: 'The form key was not accepted. Please create a fresh Web3Forms key ❤️',
         ok: false,
       }
     }
 
-    if (
-      resendResponse.status === 403 ||
-      errorMessage.includes('testing email') ||
-      errorMessage.includes('verify a domain')
-    ) {
-      const accountEmail = errorMessage.match(emailFinder)?.[0]
-      const accountHint = accountEmail ? maskEmail(accountEmail) : null
-
+    if (formResponse.status === 429) {
       return {
-        message: accountHint
-          ? `Resend says this key belongs to ${accountHint}. The receiving email must be that same address ❤️`
-          : 'The test sender can only email the address connected to your Resend account. Please double-check that inbox ❤️',
-        ok: false,
-      }
-    }
-
-    if (resendResponse.status === 429 || errorName.includes('rate_limit')) {
-      return {
-        message: 'Resend needs a little break. Please wait a minute and try again ❤️',
+        message: 'The mail service needs a little break. Please wait a minute and try again ❤️',
         ok: false,
       }
     }
