@@ -171,7 +171,17 @@ export function DateInvitation() {
                   min={minimumDate}
                   type="date"
                   value={date}
-                  onChange={(event) => setDate(event.target.value)}
+                  onChange={(event) => {
+                    event.currentTarget.setCustomValidity('')
+                    setDate(event.target.value)
+                  }}
+                  onInvalid={(event) => {
+                    if (event.currentTarget.validity.valueMissing) {
+                      event.currentTarget.setCustomValidity(
+                        'You forgot to pick our date, silly! ❤️',
+                      )
+                    }
+                  }}
                 />
               </label>
               <label className="date-field">
@@ -180,7 +190,15 @@ export function DateInvitation() {
                   required
                   type="time"
                   value={time}
-                  onChange={(event) => setTime(event.target.value)}
+                  onChange={(event) => {
+                    event.currentTarget.setCustomValidity('')
+                    setTime(event.target.value)
+                  }}
+                  onInvalid={(event) => {
+                    if (event.currentTarget.validity.valueMissing) {
+                      event.currentTarget.setCustomValidity('And what time should I be ready? ❤️')
+                    }
+                  }}
                 />
               </label>
               <div className="button-row schedule-actions">
