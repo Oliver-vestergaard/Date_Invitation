@@ -102,7 +102,7 @@ export async function submitDatePlan(input: DatePlanInput): Promise<SubmitDatePl
   }
 
   const apiKey = process.env.APIKEYZ
-  const recipient = process.env.DATE_RESPONSE_EMAIL
+  const recipient = process.env.DATE_RESPONSE_EMAIL_V2
   const fromAddress = 'onboarding@resend.dev'
 
   if (!apiKey || !recipient || !emailPattern.test(recipient)) {
