@@ -178,7 +178,7 @@ export function DateInvitation() {
                   onInvalid={(event) => {
                     if (event.currentTarget.validity.valueMissing) {
                       event.currentTarget.setCustomValidity(
-                        'You forgot to pick our date, silly! ❤️',
+                        'You forgot to pick our date! ❤️',
                       )
                     }
                   }}
