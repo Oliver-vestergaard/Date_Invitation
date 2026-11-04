@@ -18,6 +18,7 @@ export type SubmitDatePlanResult = {
 }
 
 const recentSubmissions = new Map<string, number[]>()
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/
 
@@ -91,9 +92,9 @@ export async function submitDatePlan(input: DatePlanInput): Promise<SubmitDatePl
     return { message: 'That’s enough excitement for one minute—try again in a bit ❤️', ok: false }
   }
 
-  const accessKey = process.env.WEB3FORMS_ACCESS_KEY
+  const recipient = process.env.DATE_RESPONSE_EMAIL_V2
 
-  if (!accessKey) {
+  if (!recipient || !emailPattern.test(recipient)) {
     return {
       message: 'One tiny email setup thing is still missing before this can fly ❤️',
       ok: false,
@@ -108,26 +109,20 @@ export async function submitDatePlan(input: DatePlanInput): Promise<SubmitDatePl
   let formResponse: Response
 
   try {
-    formResponse = await fetch('https://api.web3forms.com/submit', {
+    formResponse = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(recipient)}`, {
       method: 'POST',
       headers: {
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        access_key: accessKey,
-        answer: 'YES ❤️',
-        date: formattedDate,
-        from_name: 'Date Invitation',
-        message: [
-          'The answer is YES ❤️',
-          '',
-          `Plan: ${input.activity}`,
-          `Date: ${formattedDate}`,
-          `Time: ${input.time}`,
-        ].join('\n'),
-        plan: input.activity,
-        subject: 'A date answer just arrived ❤️',
-        time: input.time,
+        _captcha: 'false',
+        _subject: 'A date answer just arrived ❤️',
+        _template: 'table',
+        Answer: 'YES ❤️',
+        Date: formattedDate,
+        Plan: input.activity,
+        Time: input.time,
       }),
       cache: 'no-store',
     })
@@ -142,11 +137,20 @@ export async function submitDatePlan(input: DatePlanInput): Promise<SubmitDatePl
     message?: unknown
     success?: unknown
   } | null
+  const formMessage =
+    typeof formResult?.message === 'string' ? formResult.message.toLowerCase() : ''
+
+  if (formMessage.includes('activat')) {
+    return {
+      message: 'Check your inbox for the FormSubmit activation email, then submit again ❤️',
+      ok: false,
+    }
+  }
 
   if (!formResponse.ok || formResult?.success !== true) {
     if (formResponse.status === 401 || formResponse.status === 403) {
       return {
-        message: 'The form key was not accepted. Please create a fresh Web3Forms key ❤️',
+        message: 'Check your inbox for the FormSubmit activation email, then try again ❤️',
         ok: false,
       }
     }
