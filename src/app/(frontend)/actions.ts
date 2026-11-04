@@ -126,13 +126,40 @@ export async function submitDatePlan(input: DatePlanInput): Promise<SubmitDatePl
       cache: 'no-store',
     })
   } catch {
+    console.error('Formspree submission failed before receiving a response')
+
     return {
-      message: 'The email got a little lost. Please try sending it again ❤️',
+      message: 'Formspree could not be reached. Please try sending it again ❤️',
       ok: false,
     }
   }
 
   if (!formResponse.ok) {
+    console.error('Formspree submission was rejected', {
+      status: formResponse.status,
+    })
+
+    if (formResponse.status === 400 || formResponse.status === 404) {
+      return {
+        message: 'Formspree could not find or accept that form. Check the form ID ❤️',
+        ok: false,
+      }
+    }
+
+    if (formResponse.status === 401 || formResponse.status === 403) {
+      return {
+        message: 'Formspree rejected this form. Check that it is active in Formspree ❤️',
+        ok: false,
+      }
+    }
+
+    if (formResponse.status === 422) {
+      return {
+        message: 'Formspree could not process the form setup. Check the form settings ❤️',
+        ok: false,
+      }
+    }
+
     if (formResponse.status === 429) {
       return {
         message: 'The mail service needs a little break. Please wait a minute and try again ❤️',
