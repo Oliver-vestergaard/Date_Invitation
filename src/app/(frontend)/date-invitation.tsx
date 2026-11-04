@@ -1,17 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-
-const activities = [
-  'Dinner Date',
-  'Movie Night',
-  'Walk with Coffee',
-  'Beer / Wine',
-  'Surprise',
-  'Museum',
-  'Minigolf',
-  'PARTY!',
-] as const
+import { useMemo, useRef, useState, useTransition } from 'react'
+import { submitDatePlan } from './actions'
+import { activities, type Activity } from './date-options'
 
 type Step = 'invite' | 'activity' | 'schedule' | 'review'
 type Response = 'Yes' | 'No' | null
@@ -34,11 +25,14 @@ function Progress({ step }: { step: Step }) {
 export function DateInvitation() {
   const [step, setStep] = useState<Step>('invite')
   const [response, setResponse] = useState<Response>(null)
-  const [activity, setActivity] = useState<(typeof activities)[number] | null>(null)
+  const [activity, setActivity] = useState<Activity | null>(null)
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const [previewMessage, setPreviewMessage] = useState('')
   const [noPosition, setNoPosition] = useState({ x: 0, y: 0 })
+  const [isSent, setIsSent] = useState(false)
+  const [isSending, startSending] = useTransition()
+  const startedAt = useRef(Date.now())
 
   const minimumDate = useMemo(() => new Date().toISOString().split('T')[0], [])
 
@@ -48,7 +42,7 @@ export function DateInvitation() {
     setStep(answer === 'Yes' ? 'activity' : 'review')
   }
 
-  const chooseActivity = (choice: (typeof activities)[number]) => {
+  const chooseActivity = (choice: Activity) => {
     setActivity(choice)
     window.setTimeout(() => setStep('schedule'), 170)
   }
@@ -78,6 +72,31 @@ export function DateInvitation() {
     setDate('')
     setTime('')
     setPreviewMessage('')
+    setIsSent(false)
+    startedAt.current = Date.now()
+  }
+
+  const sendDatePlan = () => {
+    if (response !== 'Yes' || !activity || !date || !time || isSending || isSent) return
+
+    setPreviewMessage('')
+    startSending(async () => {
+      try {
+        const result = await submitDatePlan({
+          activity,
+          date,
+          response,
+          startedAt: startedAt.current,
+          time,
+          website: '',
+        })
+
+        setPreviewMessage(result.message)
+        setIsSent(result.ok)
+      } catch {
+        setPreviewMessage('The email got a little lost. Please try sending it again ❤️')
+      }
+    })
   }
 
   return (
@@ -177,9 +196,7 @@ export function DateInvitation() {
                   }}
                   onInvalid={(event) => {
                     if (event.currentTarget.validity.valueMissing) {
-                      event.currentTarget.setCustomValidity(
-                        'You forgot to pick our date! ❤️',
-                      )
+                      event.currentTarget.setCustomValidity('You forgot to pick our date! ❤️')
                     }
                   }}
                 />
@@ -244,13 +261,10 @@ export function DateInvitation() {
 
               <button
                 className="choice-button submit-button"
-                onClick={() =>
-                  setPreviewMessage(
-                    'The design is ready. Email delivery will be connected after your approval.',
-                  )
-                }
+                disabled={isSending || isSent}
+                onClick={sendDatePlan}
               >
-                SUBMIT
+                {isSending ? 'SENDING...' : isSent ? 'SENT! ❤️' : 'SUBMIT'}
               </button>
               {previewMessage && <p className="preview-message">{previewMessage}</p>}
               <button className="text-button" onClick={restart}>
