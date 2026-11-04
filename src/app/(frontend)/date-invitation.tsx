@@ -1,11 +1,21 @@
 'use client'
 
-import { useMemo, useRef, useState, useTransition } from 'react'
-import { submitDatePlan } from './actions'
+import { useForm, ValidationError } from '@formspree/react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { activities, type Activity } from './date-options'
 
 type Step = 'invite' | 'activity' | 'schedule' | 'review'
 type Response = 'Yes' | 'No' | null
+type DatePlanFields = {
+  _gotcha: string
+  _subject: string
+  answer: string
+  date: string
+  plan: string
+  time: string
+}
+
+const formspreeFormId = 'mrppjylv'
 
 function Progress({ step }: { step: Step }) {
   const active = ['invite', 'activity', 'schedule', 'review'].indexOf(step)
@@ -28,17 +38,17 @@ export function DateInvitation() {
   const [activity, setActivity] = useState<Activity | null>(null)
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
-  const [previewMessage, setPreviewMessage] = useState('')
   const [noPosition, setNoPosition] = useState({ x: 0, y: 0 })
-  const [isSent, setIsSent] = useState(false)
-  const [isSending, startSending] = useTransition()
-  const startedAt = useRef(Date.now())
+  const [formState, submitToFormspree, resetFormspree] =
+    useForm<DatePlanFields>(formspreeFormId)
 
   const minimumDate = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const formattedDate = date
+    ? new Date(`${date}T12:00:00`).toLocaleDateString('en', { dateStyle: 'full' })
+    : ''
 
   const chooseResponse = (answer: Exclude<Response, null>) => {
     setResponse(answer)
-    setPreviewMessage('')
     setStep(answer === 'Yes' ? 'activity' : 'review')
   }
 
@@ -71,32 +81,23 @@ export function DateInvitation() {
     setActivity(null)
     setDate('')
     setTime('')
-    setPreviewMessage('')
-    setIsSent(false)
-    startedAt.current = Date.now()
+    resetFormspree()
   }
 
-  const sendDatePlan = () => {
-    if (response !== 'Yes' || !activity || !date || !time || isSending || isSent) return
+  const sendDatePlan = (event: FormEvent<HTMLFormElement>) => {
+    if (
+      response !== 'Yes' ||
+      !activity ||
+      !date ||
+      !time ||
+      formState.submitting ||
+      formState.succeeded
+    ) {
+      event.preventDefault()
+      return
+    }
 
-    setPreviewMessage('')
-    startSending(async () => {
-      try {
-        const result = await submitDatePlan({
-          activity,
-          date,
-          response,
-          startedAt: startedAt.current,
-          time,
-          website: '',
-        })
-
-        setPreviewMessage(result.message)
-        setIsSent(result.ok)
-      } catch {
-        setPreviewMessage('The email got a little lost. Please try sending it again ❤️')
-      }
-    })
+    void submitToFormspree(event)
   }
 
   return (
@@ -230,7 +231,7 @@ export function DateInvitation() {
           )}
 
           {step === 'review' && (
-            <div className="review-step">
+            <form className="review-step" onSubmit={sendDatePlan}>
               <p className="eyebrow">READY TO SEND</p>
               <h2>{response === 'No' ? 'NO WORRIES AT ALL' : 'OUR DATE PLAN'}</h2>
 
@@ -259,18 +260,32 @@ export function DateInvitation() {
                 )}
               </dl>
 
+              <input name="_gotcha" tabIndex={-1} type="hidden" />
+              <input name="_subject" type="hidden" value="A date answer just arrived ❤️" />
+              <input name="answer" type="hidden" value="YES ❤️" />
+              <input name="date" type="hidden" value={formattedDate} />
+              <input name="plan" type="hidden" value={activity ?? ''} />
+              <input name="time" type="hidden" value={time} />
+
               <button
                 className="choice-button submit-button"
-                disabled={isSending || isSent}
-                onClick={sendDatePlan}
+                disabled={formState.submitting || formState.succeeded}
+                type="submit"
               >
-                {isSending ? 'SENDING...' : isSent ? 'SENT! ❤️' : 'SUBMIT'}
+                {formState.submitting ? 'SENDING...' : formState.succeeded ? 'SENT! ❤️' : 'SUBMIT'}
               </button>
-              {previewMessage && <p className="preview-message">{previewMessage}</p>}
-              <button className="text-button" onClick={restart}>
+              {formState.succeeded && (
+                <p className="preview-message">It’s sent! Check your inbox ❤️</p>
+              )}
+              <ValidationError
+                className="preview-message"
+                errors={formState.errors}
+                prefix="Formspree could not send the date plan:"
+              />
+              <button className="text-button" onClick={restart} type="button">
                 Start over
               </button>
-            </div>
+            </form>
           )}
         </div>
       </section>
